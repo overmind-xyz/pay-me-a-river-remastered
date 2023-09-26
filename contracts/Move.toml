@@ -1,0 +1,12 @@
+[package]
+name = "pay_me_a_river"
+version = "1.0.0"
+
+[addresses]
+overmind = "_"
+
+[dev-addresses]
+overmind = "0x1337"
+
+[dependencies]
+AptosTokenObjects = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-token-objects/", rev = "aptos-cli-v2.1.0" }
