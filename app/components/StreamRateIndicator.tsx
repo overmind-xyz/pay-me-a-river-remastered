@@ -140,7 +140,7 @@ export default function StreamRateIndicator() {
         - Remember to convert the amount to floating point number
         - Remember to convert the timestamps to milliseconds
         - Mark a stream as pending if the start timestamp is 0
-        - Mark a stream as completed if the start timestamp + duration is greater than the current time
+        - Mark a stream as completed if the start timestamp + duration is less than the current time
         - Mark a stream as active if it is not pending or completed
     */
     return {
