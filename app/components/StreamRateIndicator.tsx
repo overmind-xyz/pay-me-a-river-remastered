@@ -108,7 +108,7 @@ export default function StreamRateIndicator() {
    */
 
     /*
-       TODO #3: Make a request to the view function `get_senders_streams` to retrieve the gifts sent by 
+       TODO #3: Make a request to the view function `get_senders_streams` to retrieve the streams sent by 
              the user.
     */
 
@@ -128,7 +128,7 @@ export default function StreamRateIndicator() {
     */
 
     /*
-      TODO #6: Make a request to the view function `get_receivers_streams` to retrieve the gifts sent by 
+      TODO #6: Make a request to the view function `get_receivers_streams` to retrieve the streams sent by 
             the user.
     */
 

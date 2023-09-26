@@ -48,7 +48,7 @@ export function parseDuration(duration: string): number {
       return amountNum * 60 * 60 * 24 * 7;
     case "month":
     case "months":
-      return amountNum * 60 * 60 * 24 * 7 * 30;
+      return amountNum * 60 * 60 * 24 * 30;
     case "year":
     case "years":
       return amountNum * 60 * 60 * 24 * 365;

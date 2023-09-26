@@ -106,13 +106,13 @@ export default function CreatedStreamList(props: {
     */
 
     /*
-      TODO #5: Make a request to the view function `get_senders_streams` to retrieve the gifts sent by 
+      TODO #5: Make a request to the view function `get_senders_streams` to retrieve the streams sent by 
             the user.
     */
 
     /* 
-      TODO #6: Parse the response from the view request and create the gifts array using the given 
-            data. Return the new gifts array.
+      TODO #6: Parse the response from the view request and create the streams array using the given 
+            data. Return the new streams array.
 
       HINT:
         - Remember to convert the amount to floating point number

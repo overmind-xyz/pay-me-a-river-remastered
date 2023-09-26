@@ -250,7 +250,7 @@ export default function ReceivedStream(props: {
     */
 
     /* 
-      TODO: Return an array of events for the specific stream only. Parse the event data to match the 
+      TODO: Set the events state with events for the specific stream only. Parse the event data to match the 
             Event type above. 
 
       HINT: 

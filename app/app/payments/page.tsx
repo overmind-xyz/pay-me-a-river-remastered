@@ -112,7 +112,7 @@ export default function ClaimerPage() {
     */
 
     /*
-      TODO #7: Make a request to the view function `get_receivers_streams` to retrieve the gifts sent by 
+      TODO #7: Make a request to the view function `get_receivers_streams` to retrieve the streams sent by 
             the user.
     */
 
