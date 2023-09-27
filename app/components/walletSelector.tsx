@@ -1,5 +1,5 @@
 "use client";
-
+import { WalletList } from "@/components/WalletList";
 import { WalletReadyState, useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,9 +32,10 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
   const { connect, account, connected, disconnect, wallets, isLoading } = useWallet();
   // State to hold the current account's APT balance. In string - floating point format.
   const [balance, setBalance] = useState<string | undefined>(undefined);
+  console.log(balance)
   // State to hold whether the faucet is loading or not.
   const [isFaucetLoading, setIsFaucetLoading] = useState(false);
-
+  console.log(wallets)
   /* 
     Gets the balance of the connected account whenever the connected, account, isFaucetLoading,
     and isTxnInProgress variables change.
@@ -60,6 +61,17 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
             an object that contains `error_code` of `account_not_found`, call the initializeAccount
             function to initialize the account.
     */
+    const response = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/accounts/${account.address}`, {
+    method: "GET",
+    });
+
+    const data = await response.json();
+
+    if (data.error_code === "account_not_found") {
+      initializeAccount();
+    }
+
+    console.log(data)
   }
 
   /* 
@@ -70,19 +82,31 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
       TODO #6: Return if the wallet is not connected, the account is not defined, a transaction is 
       in progress, or the faucet is loading.
     */
+    if (!connected || !account || props.isTxnInProgress || isFaucetLoading) {
+      return;
+    }
 
     /* 
       TODO #7: Set the isFaucetLoading state variable to prevent this function from being called again.
     */
+    setIsFaucetLoading(true);
 
     /* 
       TODO #8: Create a new faucet client with the testnet network and faucet url. Then, call the
       fundAccount function to fund the account with 1 APT. Catch any errors that occur. 
     */
+    const faucet = new FaucetClient(Network.TESTNET, "https://faucet.testnet.aptoslabs.com");
+
+    try {
+      await faucet.fundAccount(account.address, 100000000, 1);
+    } catch (e) {
+      console.log(e);
+    }
 
     /* 
       TODO #9: Set the isFaucetLoading state variable to false. 
     */
+    setIsFaucetLoading(false);
 
   }
 
@@ -102,6 +126,33 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
         - Remember to make the API request in a try/catch block. If there is an error, set the 
           balance to "0".
     */
+    const body = {
+      function: "0x1::coin::balance",
+      type_arguments: ["0x1::aptos_coin::AptosCoin"],
+      arguments: [address],
+      }
+
+    let res;
+
+    try {
+      res = await fetch("https://fullnode.testnet.aptoslabs.com/v1/view", {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+    } catch (e) {
+      setBalance("0");
+      return;
+    }
+
+    const data = await res.json();
+    console.log('data', data)
+
+    setBalance((data / 10000000).toLocaleString())
+    return;
   };
 
   return (
@@ -117,6 +168,12 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
             <DialogHeader>
               <DialogTitle>Connect your wallet</DialogTitle>
               {
+                wallets.map((wallet, index) => {
+                  return (
+                    <WalletList wallet={wallet} connect={connect} key={index}/>
+                  );
+                })
+
                 /* 
                   TODO #1: Return a list of all supported wallets. If the wallet is installed, display
                   a button to connect the wallet. If the wallet is not installed, display a button 
@@ -130,8 +187,8 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
                     - Fill in the `Wallet Name` placeholder with the name of the wallet.
 
                   -- Connect Wallet Component --
-                  <div
                     key={wallet.name}
+                    <div
                     className="flex w-full items-center justify-between rounded-xl p-2"
                   >
                     <h1>PLACEHOLDER: Wallet Name</h1>
@@ -158,7 +215,11 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
           </DialogContent>
         </Dialog>
       )}
-      {
+      {!connected && isLoading && (
+        <Button variant="secondary" disabled>
+          Loading...
+        </Button>
+        )
         /* 
           TODO #4: Display a loading button if the wallet is currently loading
 
@@ -172,7 +233,25 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
           </Button>
         */
       }
-      {
+      {connected && account && (
+         <div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="font-mono inline-flex items-center justify-center rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 shadow h-9 px-4 py-2 bg-neutral-300 text-white gap-2 hover:bg-neutral-200">
+                {balance} | {account.address.slice(0, 5)}...{account.address.slice(-4)}
+                <ChevronDownIcon />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => {disconnect()}}>
+                Disconnect
+              </DropdownMenuItem>
+
+            </DropdownMenuContent>
+            
+          </DropdownMenu>
+        </div>
+        )
         /* 
           TODO #2: Display the wallet's APT balance and address if the wallet is connected and the 
                 account is defined. Use the component below to display the wallet's APT balance and 
