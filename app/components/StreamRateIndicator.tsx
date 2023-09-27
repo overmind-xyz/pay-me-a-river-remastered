@@ -74,8 +74,8 @@ export default function StreamRateIndicator() {
   // wallet adapter state
   const { isLoading, account, connected } = useWallet();
   // stream rate state
+  
   const [streamRate, setStreamRate] = useState(0);
-
   /* 
     Calculates and sets the stream rate
   */
@@ -98,19 +98,67 @@ export default function StreamRateIndicator() {
             Return the stream rate.
     */
     let aptPerSec = 0;
+    const receiverStreams = await getReceiverStreams();
+    const senderStreams = await getSenderStreams();
+    console.log('receiverStreams')
+    console.log(receiverStreams)
+    console.log('senderStreams')
+    console.log(senderStreams)
+    if (receiverStreams) {
+      receiverStreams.active.forEach((stream: any) => {
+        aptPerSec += stream[3] / stream[2]
+      })
+      }
 
-    return aptPerSec;
+
+    if (senderStreams) {
+      senderStreams[0].forEach((stream: any) => {
+        aptPerSec -= stream[3] / stream[2]
+      })
+    }
+
+    return aptPerSec ? aptPerSec : 0;
   };
 
   const getSenderStreams = async () => {
     /*
      TODO #2: Validate the account is defined before continuing. If not, return.
    */
-
+    console.log('account')
+    console.log(account)
+    if (!account) {
+      return;
+    }
     /*
        TODO #3: Make a request to the view function `get_senders_streams` to retrieve the streams sent by 
              the user.
     */
+    const body = {
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::get_senders_streams`,
+      arguments: [account.address],
+      type_arguments: [],
+    }
+
+    const response = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+
+    const data = await response.json()
+
+    data[3] = data[3].map((stream: any) => {
+      return stream / 1000000000
+    })
+
+    data[1] = data[1].map((stream: any) => {
+      return stream * 1000
+    })
+
+    console.log(data)
+    return data;
 
     /* 
        TODO #4: Parse the response from the view request and create the streams array using the given 
@@ -119,18 +167,73 @@ export default function StreamRateIndicator() {
        HINT:
         - Remember to convert the amount to floating point number
     */
-    return [];
   };
 
   const getReceiverStreams = async () => {
     /*
       TODO #5: Validate the account is defined before continuing. If not, return.
     */
-
+    if (!account) {
+      return;
+    }
     /*
       TODO #6: Make a request to the view function `get_receivers_streams` to retrieve the streams sent by 
             the user.
     */
+    const body = {
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::get_receivers_streams`,
+      arguments: [account.address],
+      type_arguments: [],
+    }
+
+    const response = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+
+    const data = await response.json()
+    console.log(data)
+
+    const returnData: {
+      pending: Stream[],
+      completed: Stream[],
+      active: Stream[],
+    }= {
+      pending: [],
+      completed: [],
+      active: [],
+    }
+    //index 0 is address
+    //index 1 is time stamp in seconds
+    //index 2 is duration in seconds
+    //index 3 is amount in APT
+    //index 4 is id
+    
+    data[3] = data[3].map((stream: any) => {
+      return stream / 1000000000
+    })
+
+    data[1] = data[1].map((stream: any) => {
+      return stream * 1000
+    })
+
+    console.log(data)
+
+    data.forEach((stream: any) => {
+      if (stream[1] == 0) {
+        returnData.pending.push(stream)
+      } else if (stream[1] + stream[2] < Date.now()) {
+        returnData.completed.push(stream)
+      } else {
+        returnData.active.push(stream)
+      }
+    })
+
+    console.log(returnData)
+    return returnData;
 
     /* 
       TODO #7: Parse the response from the view request and create an object containing an array of 
@@ -143,11 +246,6 @@ export default function StreamRateIndicator() {
         - Mark a stream as completed if the start timestamp + duration is less than the current time
         - Mark a stream as active if it is not pending or completed
     */
-    return {
-      pending: [],
-      completed: [],
-      active: [],
-    };
   };
 
   if (!connected) {

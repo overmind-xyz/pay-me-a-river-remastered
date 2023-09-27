@@ -1,6 +1,6 @@
 "use client";
 import { WalletList } from "@/components/WalletList";
-import { WalletReadyState, useWallet } from "@aptos-labs/wallet-adapter-react";
+import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,10 +32,8 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
   const { connect, account, connected, disconnect, wallets, isLoading } = useWallet();
   // State to hold the current account's APT balance. In string - floating point format.
   const [balance, setBalance] = useState<string | undefined>(undefined);
-  console.log(balance)
   // State to hold whether the faucet is loading or not.
   const [isFaucetLoading, setIsFaucetLoading] = useState(false);
-  console.log(wallets)
   /* 
     Gets the balance of the connected account whenever the connected, account, isFaucetLoading,
     and isTxnInProgress variables change.
@@ -71,7 +69,6 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
       initializeAccount();
     }
 
-    console.log(data)
   }
 
   /* 
@@ -149,7 +146,6 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
     }
 
     const data = await res.json();
-    console.log('data', data)
 
     setBalance((data / 10000000).toLocaleString())
     return;
