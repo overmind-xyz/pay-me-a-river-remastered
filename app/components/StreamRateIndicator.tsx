@@ -105,7 +105,7 @@ export default function StreamRateIndicator() {
     console.log('senderStreams')
     console.log(senderStreams)
     if (receiverStreams) {
-      receiverStreams.active.forEach((stream: any) => {
+      receiverStreams.Active.forEach((stream: any) => {
         aptPerSec += stream[3] / stream[2]
       })
       }
@@ -198,13 +198,13 @@ export default function StreamRateIndicator() {
     console.log(data)
 
     const returnData: {
-      pending: Stream[],
-      completed: Stream[],
-      active: Stream[],
+      Pending: Stream[],
+      Completed: Stream[],
+      Active: Stream[],
     }= {
-      pending: [],
-      completed: [],
-      active: [],
+      Pending: [],
+      Completed: [],
+      Active: [],
     }
     //index 0 is address
     //index 1 is time stamp in seconds
@@ -212,27 +212,29 @@ export default function StreamRateIndicator() {
     //index 3 is amount in APT
     //index 4 is id
     
-    data[3] = data[3].map((stream: any) => {
-      return stream / 1000000000
-    })
-
-    data[1] = data[1].map((stream: any) => {
-      return stream * 1000
-    })
-
     console.log(data)
 
-    data.forEach((stream: any) => {
-      if (stream[1] == 0) {
-        returnData.pending.push(stream)
-      } else if (stream[1] + stream[2] < Date.now()) {
-        returnData.completed.push(stream)
-      } else {
-        returnData.active.push(stream)
-      }
-    })
+    data[0].forEach((index: number) => {
+          const streamObject: Stream = {
+            sender: data[0][index],
+            recipient: process.env.MODULE_ADDRESS as string,
+            streamId: data[4][index],
+            amountAptFloat: data[3][index],
+            durationMilliseconds: data[2][index] * 1000,
+            startTimestampMilliseconds: data[1][index] * 1000,
+          }
 
-    console.log(returnData)
+          if (streamObject.startTimestampMilliseconds == 0) {
+            returnData.Pending.push(streamObject)
+          } else if (streamObject.startTimestampMilliseconds + streamObject.durationMilliseconds < Date.now()) {
+            returnData.Completed.push(streamObject)
+          }
+          else {
+            returnData.Active.push(streamObject)
+          }
+        })
+
+
     return returnData;
 
     /* 

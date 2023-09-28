@@ -141,35 +141,38 @@ export default function ClaimerPage() {
     const data = await response.json()
 
     const returnData: {
-      pending: Stream[],
-      completed: Stream[],
-      active: Stream[],
+      Pending: Stream[],
+      Completed: Stream[],
+      Active: Stream[],
     } = {
-      pending: [],
-      completed: [],
-      active: [],
+      Pending: [],
+      Completed: [],
+      Active: [],
     }
 
-    data[3] = data[3].map((stream: any) => {
-      return stream / 1000000000
-    })
+    
+    data[0].forEach((index: number) => {
+          const streamObject: Stream = {
+            sender: data[0][index],
+            recipient: process.env.MODULE_ADDRESS as string,
+            streamId: data[4][index],
+            amountAptFloat: data[3][index],
+            durationMilliseconds: data[2][index] * 1000,
+            startTimestampMilliseconds: data[1][index] * 1000,
+          }
 
-    data[1] = data[1].map((stream: any) => {
-      return stream * 1000
-    })
+          if (streamObject.startTimestampMilliseconds == 0) {
+            returnData.Pending.push(streamObject)
+          } else if (streamObject.startTimestampMilliseconds + streamObject.durationMilliseconds < Date.now()) {
+            returnData.Completed.push(streamObject)
+          }
+          else {
+            returnData.Active.push(streamObject)
+          }
+        })
 
-    data.forEach((stream: any) => {
-      if (stream[1] == 0) {
-        returnData.pending.push(stream)
-      } else if (stream[1] + stream[2] < Date.now()) {
-        returnData.completed.push(stream)
-      } else {
-        returnData.active.push(stream)
-      }
-    })
+    return returnData;
 
-    console.log(returnData)
-    return returnData
     
     /* 
       TODO #8: Parse the response from the view request and create an object containing an array of 
@@ -191,6 +194,9 @@ export default function ClaimerPage() {
     return <NoWalletConnected />;
   }
 
+  console.log('streams')
+  console.log(streams)
+  
   return (
     <>
       {
