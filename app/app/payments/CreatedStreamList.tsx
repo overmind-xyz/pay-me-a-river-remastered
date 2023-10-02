@@ -35,7 +35,7 @@ export default function CreatedStreamList(props: {
   setTxn: (isTxnInProgress: boolean) => void;
 }) {
   // Wallet state
-  const { connected, account, signAndSubmitTransaction } = useWallet();
+  const { connected, account, signAndSubmitTransaction, network } = useWallet();
   // Toast state
   const { toast } = useToast();
   // Streams state
@@ -48,12 +48,11 @@ export default function CreatedStreamList(props: {
   useEffect(() => {
     if (connected) {
       getSenderStreams().then((streams) => {
-        setStreams(streams);
+        setStreams(streams as Stream[]);
         setAreStreamsLoading(false);
       });
     }
   }, [account, connected, props.isTxnInProgress]);
-
   /*
     Cancels a selected stream.
   */
@@ -61,11 +60,11 @@ export default function CreatedStreamList(props: {
     /*
       TODO #7: Validate the account is defined before continuing. If not, return.
     */
-
+    if (!account) return;
     /* 
       TODO #8: Set the isTxnInProgress state to true. This will display the loading spinner.
     */
-
+    props.setTxn(true);
     /*
       TODO #9: Make a request to the entry function `cancel_stream` to cancel the stream. 
       
@@ -90,35 +89,79 @@ export default function CreatedStreamList(props: {
         ),
       });
     */
+    const payload = {
+      type: "entry_function_payload",
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::cancel_stream`,
+      arguments: [account.address, recipient],
+      type_arguments: [],
+    };
+    
+    const res = await signAndSubmitTransaction(payload).catch((err) => {
+      console.log(err);
+      props.setTxn(false);
+      return;
+    });
+      console.log(res)
+    if (res) {
+        toast({
+        title: "Stream closed!",
+        description: `Closed stream for ${`${recipient.slice(
+          0,
+          6
+        )}...${recipient.slice(-4)}`}`,
+        action: (
+          <a
+            href={`https://explorer.testnet.aptos.com/txn/${res.hash}?network=${network}`}
+            target="_blank"
+          >
+            <ToastAction altText="View transaction">View txn</ToastAction>
+          </a>
+        ),
+      });
+      }
+
 
     /*
       TODO #10: Set the isTxnInProgress state to false. This will hide the loading spinner.
     */
+    props.setTxn(false);
 
   };
 
-  /* 
-    Retrieves the sender streams. 
-  */
-  const getSenderStreams = async () => {
-    /*
-      TODO #4: Validate the account is defined before continuing. If not, return.
-    */
+    const getSenderStreams = async () => {
 
-    /*
-      TODO #5: Make a request to the view function `get_senders_streams` to retrieve the streams sent by 
-            the user.
-    */
+    if (!account) return;
 
-    /* 
-      TODO #6: Parse the response from the view request and create the streams array using the given 
-            data. Return the new streams array.
+    const body = {
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::get_senders_streams`,
+      arguments: [account.address],
+      type_arguments: [],
+    }
+  
+    const response = await fetch('https://fullnode.testnet.aptoslabs.com/v1/view', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    const returnArray = [] as Stream[];
+    for (let i = 0; i < data[0].length; i++) {
 
-      HINT:
-        - Remember to convert the amount to floating point number
-    */
-    
-    return []; // PLACEHOLDER: Remove this line
+      const streamObject: Stream = {
+        sender: account.address,
+        recipient: data[0][i],
+        streamId: data[4][i],
+        amountAptFloat: parseFloat(data[3][i]),
+        durationMilliseconds: data[2][i] * 1000,
+        startTimestampMilliseconds: data[1][i] * 1000,
+      }
+
+      returnArray.push(streamObject)
+      }
+
+    return returnArray;
   };
 
   return (
@@ -142,7 +185,8 @@ export default function CreatedStreamList(props: {
                 HINT:
                   - Use the areStreamsLoading state to determine if the streams are loading.
                 
-                -- Skeleton loader -- 
+              */
+              areStreamsLoading && 
                 <TableRow>
                   <TableCell className="items-center">
                     <div className="flex flex-row justify-center items-center w-full">
@@ -170,7 +214,6 @@ export default function CreatedStreamList(props: {
                     </div>
                   </TableCell>
                 </TableRow>
-              */
             }
             {
               /* 
@@ -181,7 +224,8 @@ export default function CreatedStreamList(props: {
                   - Use the areStreamsLoading state to determine if the streams are loading.
                   - Use the streams state to determine if there are any streams.
 
-                -- message component --
+              */
+              !areStreamsLoading && streams.length === 0 &&
                 <TableRow className="hover:bg-neutral-400">
                   <TableCell colSpan={5}>
                     <p className="break-normal text-center font-matter py-4 text-neutral-100">
@@ -189,7 +233,6 @@ export default function CreatedStreamList(props: {
                     </p>
                   </TableCell>
                 </TableRow>
-              */
             }
             {
               /* 
@@ -298,7 +341,127 @@ export default function CreatedStreamList(props: {
                   </TableCell>
                 </TableRow>
               */
-            }
+
+              streams.map((stream, index) => {
+              
+                const truncatedRecipient = `${stream.recipient.slice(
+                  0,
+                  6
+                )}...${stream.recipient.slice(-4)}`;
+                
+                const endDate = new Date(
+                  stream.startTimestampMilliseconds +
+                    stream.durationMilliseconds
+                );
+
+                const isStreamStarted = stream.startTimestampMilliseconds > 0;
+                const isStreamFinished = Date.now() > stream.startTimestampMilliseconds + stream.durationMilliseconds;
+
+                return (
+               <TableRow
+                  key={index}
+                  className="font-matter hover:bg-neutral-400"
+                >
+                  <TableCell className="text-center">
+                    {stream.streamId}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>{truncatedRecipient}</TooltipTrigger>
+                        <TooltipContent>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {/*
+                      TODO: Display the end date of the stream. If the stream has not started, 
+                            display a message saying "Stream has not started". Use the provided 
+                            component to display the date.
+
+                      HINT: 
+                        - Use the startTimestampMilliseconds to determine if the stream has started.
+                        - Use the durationMilliseconds and startTimestampMilliseconds to calculate 
+                          the end date.
+                    
+                      -- date component --
+                      */
+                    stream.startTimestampMilliseconds ? 
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            {endDate.toLocaleDateString()}
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{endDate.toLocaleString()}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      :
+                      <p>
+                        <i>Stream has not started</i>
+                      </p>
+                    }
+                  </TableCell>
+                  <TableCell className="font-mono text-center">
+                    {/*
+                      TODO: Display the remaining amount of the stream. If the stream has not started,
+                            display the full amount. Use the provided component to display the amount.
+                      
+                      HINT:
+                        - Use the startTimestampMilliseconds to determine if the stream has started.
+                        - Use the durationMilliseconds and startTimestampMilliseconds to determine if 
+                          the stream has finished.
+
+                      -- amount component (show when stream is completed) --
+                      */
+                      <>
+                        {isStreamStarted && (
+                          isStreamFinished ? (
+                          <p> 0.00 APT </p>
+                          )
+                        :
+                        (
+                        <CountUp
+                          start={(stream.amountAptFloat / 100000000)}
+                          end={0}
+                          duration={stream.durationMilliseconds / 1000}
+                          decimals={8}
+                          decimal="."
+                          suffix=" APT"
+                          useEasing={false}
+                        />
+                        )
+                      )}
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            {(stream.amountAptFloat / 100000000).toFixed(2) + ' APT'}
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {(stream.amountAptFloat / 100000000).toFixed(8)}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      </>
+                    }
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      size="sm"
+                      className="bg-red-800 hover:bg-red-700 text-white"
+                      onClick={() => cancelStream(stream.recipient)}
+                    >
+                      Cancel
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                )}
+              )}
           </TableBody>
         </Table>
       </div>

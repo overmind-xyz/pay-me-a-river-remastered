@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { SpanConductorOne, SpanConductorTwo } from "@/lib/SpanConductor";
 import {
   Card,
   CardContent,
@@ -60,7 +61,7 @@ export function parseDurationShort(durationMilliseconds: number): string {
   }
 }
 
-type Event = {
+export type Event = {
   type: "stream_created" | "stream_accepted" | "stream_claimed" | "stream_cancelled" | "unknown";
   timestamp: number;
   data: {
@@ -80,7 +81,7 @@ export default function ReceivedStream(props: {
   streamId: number;
 }) {
   // wallet state
-  const { account, signAndSubmitTransaction } = useWallet();
+  const { account, signAndSubmitTransaction, network } = useWallet();
   // toast state
   const { toast } = useToast();
 
@@ -113,11 +114,16 @@ export default function ReceivedStream(props: {
     /* 
       TODO: Set the isTxnInProgress prop to true
     */
-
+    props.setTxn(true);
     /* 
       TODO: Create the payload for the claim_stream transaction
     */
-
+    const payload = {
+      type: "entry_function_payload",
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::claim_stream`,
+      arguments: [process.env.MODULE_ADDRESS],
+      type_arguments: [],
+      }
     /* 
       TODO: In a try/catch block, sign and submit the transaction using the signAndSubmitTransaction
             function provided by the wallet adapter. Use the payload created above.
@@ -139,11 +145,27 @@ export default function ReceivedStream(props: {
         ),
       });
     */
-
+    try {
+      const res = await signAndSubmitTransaction(payload);
+      toast({
+        title: "APT claimed!",
+        action: (
+          <a
+          href={`https://explorer.testnet.aptos.com/txn/${res.hash}?network=${network}`}
+            target="_blank"
+          >
+            <ToastAction altText="View transaction">View txn</ToastAction>
+          </a>
+        ),
+      });
+    } catch (error) {
+      console.log(error);
+    }
+    
     /* 
       TODO: Set the isTxnInProgress prop to false
     */
-
+    props.setTxn(false);
   };
 
   /* 
@@ -153,11 +175,17 @@ export default function ReceivedStream(props: {
     /* 
       TODO: Set the isTxnInProgress prop to true
     */
-
+    props.setTxn(true);
     /* 
       TODO: Create the payload for the accept_stream transaction
     */
-
+    const payload = {
+      type: "entry_function_payload",
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::accept_stream`,
+      arguments: [process.env.MODULE_ADDRESS],
+      type_arguments: [],
+    }
+    
     /* 
       TODO: In a try/catch block, sign and submit the transaction using the signAndSubmitTransaction
             function provided by the wallet adapter. Use the payload created above.
@@ -179,11 +207,26 @@ export default function ReceivedStream(props: {
         ),
       });
     */
-
+    try {
+      const res = await signAndSubmitTransaction(payload);
+      toast({
+        title: "Stream accepted!",
+        action: (
+          <a
+          href={`https://explorer.testnet.aptos.com/txn/${res.hash}?network=${network}`}
+            target="_blank"
+          >
+            <ToastAction altText="View transaction">View txn</ToastAction>
+          </a>
+        ),
+      });
+    } catch (error) {
+      console.log(error);
+    }
     /* 
       TODO: Set the isTxnInProgress prop to false
     */
-
+    props.setTxn(false);
   };
 
   /* 
@@ -193,15 +236,20 @@ export default function ReceivedStream(props: {
     /* 
       TODO: Return if the account is not defined
     */
-
+    if (!account) return;
     /* 
       TODO: Set the isTxnInProgress prop to true
     */
-
+    props.setTxn(true);
     /* 
       TODO: Create the payload for the cancel_stream transaction
     */
-  
+    const payload = {
+      type: "entry_function_payload",
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::cancel_stream`,
+      arguments: [process.env.MODULE_ADDRESS, account.address],
+      type_arguments: [],
+    }
     /* 
       TODO: In a try/catch block, sign and submit the transaction using the signAndSubmitTransaction
             function provided by the wallet adapter. Use the payload created above.
@@ -223,11 +271,26 @@ export default function ReceivedStream(props: {
         ),
       });
     */
-
+    try {
+      const res = await signAndSubmitTransaction(payload);
+      toast({
+        title: "Stream rejected",
+        action: (
+          <a
+          href={`https://explorer.testnet.aptos.com/txn/${res.hash}?network=${network}`}
+            target="_blank"
+          >
+            <ToastAction altText="View transaction">View txn</ToastAction>
+          </a>
+        ),
+      });
+    } catch (error) {
+      console.log(error);
+    }
     /* 
       TODO: Set the isTxnInProgress prop to false
     */
-
+    props.setTxn(false);
   };
 
   /* 
@@ -238,9 +301,21 @@ export default function ReceivedStream(props: {
       TODO: Fetch the event of the event_store_name from the event store and return the result in 
             a promise. 
     */
-
+    return new Promise((resolve, reject) => {
+      fetch(`https://fullnode.testnet.aptoslabs.com/v1/accounts/${process.env.RESOURCE_ACCOUNT_ADDRESS}/events/${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::ModuleEventStore/${event_store_name}?limit=10000`, {
+        method: "GET",
+      }).then((res) => {
+        if (res.status !== 200) {
+          reject(res);
+        }
+        resolve(res.json());
+      }
+      ).catch((err) => {
+        reject(err);
+      }
+      );
+  });
   };
-
   /* 
     Retrieves the stream events from the event store and sets the events state
   */
@@ -248,7 +323,11 @@ export default function ReceivedStream(props: {
     /* 
       TODO: Use the getEventList function to fetch all the events from the event store. 
     */
-
+    const createdEventList = await getEventList("stream_create_events");
+    const acceptedEventList = await getEventList("stream_accept_events");
+    const claimedEventList = await getEventList("stream_claim_events");
+    const closedEventList = await getEventList("stream_close_events");
+    
     /* 
       TODO: Set the events state with events for the specific stream only. Parse the event data to match the 
             Event type above. 
@@ -258,6 +337,57 @@ export default function ReceivedStream(props: {
         - Use the event.type to determine the type of the event to properly parse the event data
         - Remember to convert units when necessary
     */
+    createdEventList.forEach((event: any) => {
+     if (event.data.stream_id === props.streamId) {
+      setEvents((events) => [...events, {
+        type: "stream_created",
+        timestamp: event.data.timestamp,
+        data: {
+          amount: event.data.amount / 100000000,
+        }
+      }]);
+     }
+    });
+
+    acceptedEventList.forEach((event: any) => {
+      if (event.data.stream_id === props.streamId) {
+        setEvents((events) => [...events, {
+          type: "stream_accepted",
+          timestamp: event.data.timestamp,
+          data: {
+            amount: event.data.amount / 100000000,
+          }
+        }]);
+      }
+    }
+
+    );
+
+    claimedEventList.forEach((event: any) => {
+      if (event.data.stream_id === props.streamId) {
+        setEvents((events) => [...events, {
+          type: "stream_claimed",
+          timestamp: event.data.timestamp,
+          data: {
+            amount: event.data.amount / 100000000,
+          }
+        }]);
+      }
+    });
+
+    closedEventList.forEach((event: any) => {
+      if (event.data.stream_id === props.streamId) {
+        setEvents((events) => [...events, {
+          type: "stream_cancelled",
+          timestamp: event.data.timestamp,
+          data: {
+            amount_to_sender: event.data.amount_to_sender / 100000000,
+            amount_to_recipient: event.data.amount_to_recipient / 100000000,
+          }
+        }]);
+      }
+    }
+    );
 
   };
 
@@ -301,7 +431,21 @@ export default function ReceivedStream(props: {
                 -- static amount --
                 <p>{props.amountAptFloat}</p>
               */
-              
+              (getAmountToClaim() > 0 && getAmountToClaim() < props.amountAptFloat) ? ( 
+                <CountUp
+                  start={getAmountToClaim()}
+                  end={props.amountAptFloat}
+                  duration={props.durationSeconds}
+                  separator=","
+                  decimals={8}
+                  decimal="."
+                  prefix=""
+                  suffix=""
+                  useEasing={false}
+                />
+              ) : (
+                <p>{props.amountAptFloat}</p>
+              )
             }
 
             {
@@ -321,6 +465,15 @@ export default function ReceivedStream(props: {
                   </div>
                 </div>
               */
+              (getAmountToClaim() < props.amountAptFloat) && (
+                <div className="w-full flex items-center justify-end absolute top-4 right-4">
+                  <div className="bg-neutral-200 text-neutral-100 p-1.5 rounded-md hover:text-red-400 hover:cursor-pointer hover:bg-neutral-100 hover:bg-opacity-25">
+                  <p onClick={rejectStream}>
+                    <Cross2Icon />
+                  </p>
+                </div>
+                </div>
+              )
             }
           </div>
 
@@ -347,7 +500,28 @@ export default function ReceivedStream(props: {
                 className="w-full bg-green-500 h-3 rounded"
               />
               */
+            getAmountToClaim() === 0 && (
+              <Progress value={0} max={100} className="w-full" />
+            )
+            
+
           }
+          {
+            getAmountToClaim() === props.amountAptFloat && (
+              <Progress value={100} max={100} className="w-full" />
+            )
+          }
+          {
+            getAmountToClaim() > 0 && getAmountToClaim() < props.amountAptFloat && (
+              <Progress
+                value={(getAmountToClaim() / props.amountAptFloat) * 100}
+                max={100}
+                className="w-full bg-green-500 h-3 rounded"
+              />
+            )
+          }
+
+
 
           <div className="flex flex-row items-center justify-between w-full">
             <Dialog>
@@ -400,6 +574,25 @@ export default function ReceivedStream(props: {
                           </TableCell>
                         </TableRow>
                       */
+                      events.length === 0 && (
+                        <TableRow>
+                          <TableCell className="items-center">
+                            <div className="flex flex-row justify-center items-center w-full">
+                              <Skeleton className="h-4 w-28" />
+                            </div>
+                          </TableCell>
+                          <TableCell className="items-center">
+                            <div className="flex flex-row justify-center items-center w-full">
+                              <Skeleton className="h-4 w-20" />
+                            </div>
+                          </TableCell>
+                          <TableCell className="items-center">
+                            <div className="flex flex-row justify-center items-center w-full">
+                              <Skeleton className="h-4 w-32" />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
                     }
                     {
                       /* 
@@ -431,7 +624,7 @@ export default function ReceivedStream(props: {
                           <TableCell className="text-center">
                             PLACEHOLDER: Display the event timestamp in a readable format
                           </TableCell>
-                          <TableCell className="text-center">
+                        <TableCell className="text-center">
                             TODO: Display the event data based on the event.type
 
                             HINT: 
@@ -460,6 +653,20 @@ export default function ReceivedStream(props: {
                           </TableCell>
                         </TableRow>
                       */
+                      events.map((event) => (
+                        <TableRow key={event.timestamp}>
+                          <TableCell className="text-center">
+                            <SpanConductorOne event={event} />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {new Date(event.timestamp * 1000).toLocaleString()}
+                          </TableCell>
+
+                          <TableCell className="text-center">
+                            <SpanConductorTwo event={event} />
+                          </TableCell>
+                        </TableRow>
+                      ))
                     }
                   </TableBody>
                 </Table>
@@ -501,6 +708,20 @@ export default function ReceivedStream(props: {
                           ),
                         });
                       */
+                      navigator.clipboard.writeText(props.senderAddress);
+                      toast({
+                        description: "Address copied to clipboard",
+                        action: (
+                          <a
+                            href={`https://explorer.testnet.aptos.com/account/${props.senderAddress}?network=${network}`}
+                            target="_blank"
+                          >
+                            <ToastAction altText="View account on explorer">
+                              View on explorer
+                            </ToastAction>
+                          </a>
+                        ),
+                      });
                     }}
                   >
                     <p className="">
@@ -532,6 +753,16 @@ export default function ReceivedStream(props: {
                 </p>
               </div>
             */
+            (props.startTimestampSeconds > 0) && (
+              <div className="w-full flex flex-row gap-3 items-center justify-between">
+                <p className="text-neutral-100 text-sm">End:</p>
+                <p className="text-end text-sm">
+                  {new Date(
+                    (props.startTimestampSeconds + props.durationSeconds) * 1000
+                  ).toLocaleString()}
+                </p>
+              </div>  
+            )
           }
           {
             /* 
@@ -545,6 +776,14 @@ export default function ReceivedStream(props: {
                 </span>
               </div>
             */
+            (props.startTimestampSeconds === 0) && (
+                <div className="w-full flex flex-row items-center justify-between">
+                <p className="text-neutral-100 text-sm">Duration:</p>
+                <span className="font-matter">
+                  {parseDurationShort(props.durationSeconds * 1000)}
+                </span>
+              </div>
+            )
           }
         </div>
       </CardContent>
@@ -572,6 +811,21 @@ export default function ReceivedStream(props: {
                 Accept
               </Button>
             */
+            (getAmountToClaim() > 0 && getAmountToClaim() < props.amountAptFloat) ? (
+              <Button
+                className="grow bg-green-800 hover:bg-green-700 text-white"
+                onClick={claimApt}
+              >
+                Claim
+              </Button>
+            ) : (
+              <Button
+                className="grow bg-green-800 hover:bg-green-700 text-white"
+                onClick={acceptStream}
+              >
+                Accept
+              </Button>
+            )
           }
           {
             /* 
@@ -586,6 +840,14 @@ export default function ReceivedStream(props: {
                 Reject
               </Button>
             */ 
+            (getAmountToClaim() > 0 && getAmountToClaim() < props.amountAptFloat) && (
+              <Button
+                className="grow bg-red-800 hover:bg-red-700 text-white font-matter"
+                onClick={rejectStream}
+              >
+                Reject
+              </Button>
+            )
           }
         </div>
       </CardFooter>

@@ -147,7 +147,7 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
 
     const data = await res.json();
 
-    setBalance((data / 10000000).toLocaleString())
+    setBalance((data / 100000000).toLocaleString())
     return;
   };
 

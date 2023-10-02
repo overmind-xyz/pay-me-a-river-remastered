@@ -111,62 +111,44 @@ export default function StreamRateIndicator() {
       }
 
 
-    if (senderStreams) {
-      senderStreams[0].forEach((stream: any) => {
-        aptPerSec -= stream[3] / stream[2]
-      })
-    }
-
     return aptPerSec ? aptPerSec : 0;
   };
-
+  
   const getSenderStreams = async () => {
-    /*
-     TODO #2: Validate the account is defined before continuing. If not, return.
-   */
-    console.log('account')
-    console.log(account)
-    if (!account) {
-      return;
-    }
-    /*
-       TODO #3: Make a request to the view function `get_senders_streams` to retrieve the streams sent by 
-             the user.
-    */
+
+    if (!account) return;
+    
     const body = {
       function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::get_senders_streams`,
       arguments: [account.address],
       type_arguments: [],
     }
-
-    const response = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
-      method: "POST",
+  
+    const response = await fetch('https://fullnode.testnet.aptoslabs.com/v1/view', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
-    })
+    });
 
-    const data = await response.json()
 
-    data[3] = data[3].map((stream: any) => {
-      return stream / 1000000000
-    })
+    const data = await response.json();
+    const returnArray = [] as Stream[];
+    console.log('senderStreamData', data)
+    for (let i = 0; i < data[0].length; i++) {
+      const streamObject: Stream = {
+        sender: account.address,
+        recipient: data[0][i],
+        streamId: data[4][i],
+        amountAptFloat: data[3][i],
+        durationMilliseconds: data[2][i] * 1000,
+        startTimestampMilliseconds: data[1][i] * 1000,
+      }
+      returnArray.push(streamObject)
+    }
 
-    data[1] = data[1].map((stream: any) => {
-      return stream * 1000
-    })
-
-    console.log(data)
-    return data;
-
-    /* 
-       TODO #4: Parse the response from the view request and create the streams array using the given 
-             data. Return the new streams array.
- 
-       HINT:
-        - Remember to convert the amount to floating point number
-    */
+    return returnArray;
   };
 
   const getReceiverStreams = async () => {
@@ -195,7 +177,7 @@ export default function StreamRateIndicator() {
     })
 
     const data = await response.json()
-    console.log(data)
+    console.log('receiver stream data', data)
 
     const returnData: {
       Pending: Stream[],
@@ -213,27 +195,25 @@ export default function StreamRateIndicator() {
     //index 4 is id
     
     console.log(data)
+    
+    for ( let i = 0; i < data[0].length; i++ ) {
+      const streamObject: Stream = {
+        sender: data[0][i],
+        recipient: account.address,
+        streamId: data[4][i],
+        amountAptFloat: data[3][i],
+        durationMilliseconds: data[2][i] * 1000,
+        startTimestampMilliseconds: data[1][i] * 1000,
+      }
 
-    data[0].forEach((index: number) => {
-          const streamObject: Stream = {
-            sender: data[0][index],
-            recipient: process.env.MODULE_ADDRESS as string,
-            streamId: data[4][index],
-            amountAptFloat: data[3][index],
-            durationMilliseconds: data[2][index] * 1000,
-            startTimestampMilliseconds: data[1][index] * 1000,
-          }
-
-          if (streamObject.startTimestampMilliseconds == 0) {
-            returnData.Pending.push(streamObject)
-          } else if (streamObject.startTimestampMilliseconds + streamObject.durationMilliseconds < Date.now()) {
-            returnData.Completed.push(streamObject)
-          }
-          else {
-            returnData.Active.push(streamObject)
-          }
-        })
-
+      if (streamObject.startTimestampMilliseconds === 0) {
+        returnData.Pending.push(streamObject)
+      } else if (streamObject.startTimestampMilliseconds + streamObject.durationMilliseconds < Date.now()) {
+        returnData.Completed.push(streamObject)
+      } else {
+        returnData.Active.push(streamObject)
+      }
+    }
 
     return returnData;
 

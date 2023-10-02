@@ -76,6 +76,8 @@ export default function StreamCreator(props: {
     Creates a stream using the address, amount, and date state variables. This function is called
     when the "Start Stream" button is clicked.
   */
+
+  
   const startStream = async () => {
     /* 
       TODO #1: Validate the address, amount, and date are all defined before continuing. Return early 
@@ -108,15 +110,14 @@ export default function StreamCreator(props: {
           with 8 decimal places.
         - The date is in milliseconds, but the transaction expects seconds.
     */
-    
+    const newAmt = parseFloat(amount) * 100000000;
+    const durationInSec = parseDuration(duration);
     const payload = {
       type: "entry_function_payload",
-      function: "0x1::coin::transfer",
-      arguments: [address, parseInt(amount) * 100000000],
-      type_arguments: ["0x1::aptos_coin::AptosCoin"],
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::create_stream`,
+      arguments: [address, newAmt, durationInSec], 
+      type_arguments: [],
       };
-
-
     /* 
       TODO #6: In a try/catch block, sign and submit the transaction using the signAndSubmitTransaction
             function provided by the wallet adapter. Use the payload created above.
@@ -146,7 +147,8 @@ export default function StreamCreator(props: {
 
     try {
       res = await signAndSubmitTransaction(payload);
-
+      console.log('res')
+      console.log(res);
       toast({
         title: "Stream created!",
         description: `Stream created: to ${`${address.slice(
@@ -165,7 +167,9 @@ export default function StreamCreator(props: {
     }
 
     catch (e) {
+      console.log('error')
       console.log(e);
+      console.log(amount)
     }
       /* 
         TODO #7: Set the isTxnInProgress prop to false
