@@ -55,34 +55,43 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
     by funding it with 1 APT. 
   */
   const ensureAccountExists = async () => {
-    /* 
-      TODO #5: Make a request to the api endpoint to retrieve the account data. If the request returns 
-            an object that contains `error_code` of `account_not_found`, call the initializeAccount
-            function to initialize the account.
-    */
+
+    const response = await fetch (
+      `https://fullnode.testnet.aptoslabs.com/v1/accounts/${account.address}`,
+      {
+        method: 'GET'
+      }
+    );
+
+    const accountData = await response.json();
+
+    if (accountData.error_code == 'account_not_found') {
+      initializeAccount();
+    } else {
+      return accountData
+    }
   }
 
   /* 
     Initializes the account by funding it with 1 APT.
   */
   const initializeAccount = async () => {
-    /* 
-      TODO #6: Return if the wallet is not connected, the account is not defined, a transaction is 
-      in progress, or the faucet is loading.
-    */
 
-    /* 
-      TODO #7: Set the isFaucetLoading state variable to prevent this function from being called again.
-    */
+    if (!connect || !account || props.isTxnInProgress || isFaucetLoading) {
+      return;
+    }
 
-    /* 
-      TODO #8: Create a new faucet client with the testnet network and faucet url. Then, call the
-      fundAccount function to fund the account with 1 APT. Catch any errors that occur. 
-    */
+    setIsFaucetLoading(true)
 
-    /* 
-      TODO #9: Set the isFaucetLoading state variable to false. 
-    */
+    const faucetClient = new FaucetClient(Network.TESTNET, "https://faucet.testnet.aptoslabs.com");
+
+    try {
+      await faucetClient.fundAccount(account.address, 100000000, 1);
+    } catch (e) {
+      console.log(e);
+    }
+
+    setIsFaucetLoading(false)
 
   }
 
@@ -92,16 +101,44 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
     @param address - The address to get the APT balance of.
   */
   const getBalance = async (address: string) => {
-    /* 
 
-      TODO #3: Make a call to the 0x1::coin::balance function to get the balance of the given address. 
-      
-      HINT: 
-        - The APT balance is return with a certain number of decimal places. Remember to convert the 
-          balance to floating point format as a string.
-        - Remember to make the API request in a try/catch block. If there is an error, set the 
-          balance to "0".
-    */
+    const body = {
+      function:
+        "0x1::coin::balance",
+      type_arguments: ["0x1::aptos_coin::AptosCoin"],
+      arguments: [address],
+    };
+        
+    let res;
+    try {
+      res = await fetch(
+        `https://fullnode.testnet.aptoslabs.com/v1/view`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+        }
+      )
+    } catch (e) {
+      setBalance("0");
+      return;
+    }
+    
+    const data = await res.json();
+
+    setBalance((data / 100000000).toLocaleString());
+
+  };
+
+  const handleConnect = (walletName: string) => {
+    connect(walletName);
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
   };
 
   return (
@@ -117,89 +154,68 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
             <DialogHeader>
               <DialogTitle>Connect your wallet</DialogTitle>
               {
-                /* 
-                  TODO #1: Return a list of all supported wallets. If the wallet is installed, display
-                  a button to connect the wallet. If the wallet is not installed, display a button 
-                  to install the wallet. 
-
-                  HINT: 
-                    - Use the two components below to display the wallet name and the connect or 
-                      install button. Remember to fill in the `onClick` event handler for the connect 
-                      button and the `href` for the install button. 
-                    - Use the `wallets` array to get the list of supported wallets.
-                    - Fill in the `Wallet Name` placeholder with the name of the wallet.
-
-                  -- Connect Wallet Component --
-                  <div
-                    key={wallet.name}
-                    className="flex w-full items-center justify-between rounded-xl p-2"
-                  >
-                    <h1>PLACEHOLDER: Wallet Name</h1>
-                    <Button variant="secondary" onClick={() => console.log("PLACEHOLDER: Connect wallet")}>
-                      Connect
-                    </Button>
-                  </div>
-
-                  -- Install Wallet Component --
-                  <div
-                    key={wallet.name}
-                    className="flex w-full items-center justify-between rounded-xl p-2"
-                  >
-                    <h1>PLACEHOLDER: Wallet Name</h1>
-                    <a href="PLACEHOLDER.com" target="_blank">
-                      <Button variant="secondary">
-                        Install
-                      </Button>
-                    </a>
-                  </div>
-                */
+                wallets?.map((w:any) => {
+                  return (
+                    <div>
+                      {
+                        w?.readyState === "Installed"
+                        ? (
+                          <div
+                            key={w.name}
+                            className="flex w-full items-center justify-between rounded-xl p-2"
+                          >
+                            <h1>{w.name}</h1>
+                            <Button variant="secondary" onClick={() => handleConnect(w.name)}>
+                              Connect
+                            </Button>
+                          </div>
+                        )
+                        : (
+                          <div
+                            key={w.name}
+                            className="flex w-full items-center justify-between rounded-xl p-2"
+                          >
+                            <h1>{w.name}</h1>
+                            <a href={w.url} target="_blank">
+                              <Button variant="secondary">
+                                Install
+                              </Button>
+                            </a>
+                          </div>
+                        )
+                      }
+                    </div>
+                  )
+                }) || []
               }
             </DialogHeader>
           </DialogContent>
         </Dialog>
       )}
       {
-        /* 
-          TODO #4: Display a loading button if the wallet is currently loading
-
-          HINT: 
-            - Use the `isLoading` variable to check if the wallet is loading.
-            - Use the Button component below to display.
-
-          -- Loading Button Component --
+        isLoading && (
           <Button variant="secondary" disabled>
             Loading...
           </Button>
-        */
+        )
       }
       {
-        /* 
-          TODO #2: Display the wallet's APT balance and address if the wallet is connected and the 
-                account is defined. Use the component below to display the wallet's APT balance and 
-                address, as well as provide the disconnect button. 
-
-          HINT: 
-            - Use the `connected` and `account` variables to check if the wallet is connected and the
-              account is defined.
-            - Use the `balance` state variable to display the wallet's APT balance.
-            - Remember to fill in the `onClick` event handler for the disconnect button.
-          
-          -- Wallet Balance Component --
+        connected && account && (
           <div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="font-mono">
-                  PLACEHOLDER APT | {account.address.slice(0, 5)}...{account.address.slice(-4)}
+                  {balance} | {account.address.slice(0, 5)}...{account.address.slice(-4)}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => {console.log("PLACEHOLDER: Disconnect wallet")}}>
+                <DropdownMenuItem onClick={() => handleDisconnect()}>
                   Disconnect
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        */
+        )
       }
     </div>
   );
