@@ -163,6 +163,13 @@ export default function CreatedStreamList(props: {
     
   };
 
+  function shortenString(str: string) {
+    if (str.length > 10) {
+        return str.slice(0, 6) + '...' + str.slice(-4);
+    }
+    return str;
+  }
+
   return (
     <ScrollArea className="rounded-lg bg-neutral-400 border border-neutral-200 w-full">
       <div className="h-fit max-h-96 w-full">
