@@ -91,63 +91,161 @@ export default function StreamRateIndicator() {
   */
   const calculateStreamRate = async () => {
 
-    /* 
-      TODO #1: Fetch the receiver and sender streams using getReceiverStreams and getSenderStreams. 
-            Then, calculate the stream rate by calculating and adding up the rate of APT per second 
-            for each receiver stream and subtracting the rate of APT per second for each sender stream.
-            Return the stream rate.
-    */
-    let aptPerSec = 0;
+    const receiverStreams = await getReceiverStreams();
+    const senderSteams = await getSenderStreams();
+
+    const activeReceiverSteams = receiverStreams?.Active
+
+    let receivingStreamRate = 0
+
+    activeReceiverSteams?.forEach((s: any) => {
+      const durationInSeconds = s?.duration / 1000
+      const aptPerSecond = s?.stream_amounts / durationInSeconds
+      receivingStreamRate += aptPerSecond
+    })
+
+    let sendingStreamRate = 0
+
+    senderSteams?.forEach((s: any) => {
+      const durationInSeconds = s?.duration / 1000
+      const aptPerSecond = (s?.stream_amounts) / durationInSeconds
+      sendingStreamRate += aptPerSecond
+    })
+
+    let aptPerSec = receivingStreamRate - sendingStreamRate;
 
     return aptPerSec;
   };
 
   const getSenderStreams = async () => {
-    /*
-     TODO #2: Validate the account is defined before continuing. If not, return.
-   */
 
-    /*
-       TODO #3: Make a request to the view function `get_senders_streams` to retrieve the streams sent by 
-             the user.
-    */
+    if (!account) {
+      return;
+    }
+    
+    const body = {
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::get_senders_streams`,
+      type_arguments: [],
+      arguments: [account.address],
+    };
 
-    /* 
-       TODO #4: Parse the response from the view request and create the streams array using the given 
-             data. Return the new streams array.
- 
-       HINT:
-        - Remember to convert the amount to floating point number
-    */
-    return [];
+    let res;
+    try {
+      res = await fetch(
+        `https://fullnode.testnet.aptoslabs.com/v1/view`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      )
+    } catch (e) {
+      console.log('e', e)
+      return;
+    }
+
+    const data = await res.json();
+
+    let streams = [];
+
+    streams = data.map((stream: any) => parseFloat(stream));
+
+    const [
+      receiver_addresses,
+      start_timestamp_seconds,
+      duration_in_seconds,
+      stream_amounts,
+      stream_ids,
+    ] = Array.from<Array<string>>(data as any);
+
+    return receiver_addresses?.map((receiver_address, i) => {
+      return {
+        address: receiver_address,
+        start: parseInt(start_timestamp_seconds[i] ?? 0) * 1000,
+        duration: parseInt(duration_in_seconds[i] ?? 0) * 1000,
+        stream_amounts: parseFloat(stream_amounts[i] ?? 0) / 100_000_000,
+        stream_id: stream_ids[i],
+      };
+    });
+
   };
 
   const getReceiverStreams = async () => {
-    /*
-      TODO #5: Validate the account is defined before continuing. If not, return.
-    */
 
-    /*
-      TODO #6: Make a request to the view function `get_receivers_streams` to retrieve the streams sent by 
-            the user.
-    */
+    if (!account) {
+      return;
+    }
 
-    /* 
-      TODO #7: Parse the response from the view request and create an object containing an array of 
-            pending, completed, and active streams using the given data. Return the new object.
-
-      HINT:
-        - Remember to convert the amount to floating point number
-        - Remember to convert the timestamps to milliseconds
-        - Mark a stream as pending if the start timestamp is 0
-        - Mark a stream as completed if the start timestamp + duration is less than the current time
-        - Mark a stream as active if it is not pending or completed
-    */
-    return {
-      pending: [],
-      completed: [],
-      active: [],
+    const body = {
+      function: `${process.env.MODULE_ADDRESS}::${process.env.MODULE_NAME}::get_receivers_streams`,
+      type_arguments: [],
+      arguments: [account.address],
     };
+
+    let res;
+    try {
+      res = await fetch(
+        `https://fullnode.testnet.aptoslabs.com/v1/view`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      )
+    } catch (e) {
+      console.log('e', e)
+      return;
+    }
+
+    const data = await res.json();
+
+    const [
+      sender_addresses,
+      start_timestamp_seconds,
+      duration_in_seconds,
+      stream_amounts,
+      stream_ids,
+    ] = Array.from<Array<string>>(data as any);
+  
+    const streams = sender_addresses?.map((sender_address, i) => {
+      return {
+        address: sender_address,
+        start: parseInt(start_timestamp_seconds[i] ?? 0) * 1000,
+        duration: parseInt(duration_in_seconds[i] ?? 0) * 1000,
+        stream_amounts: parseFloat(stream_amounts[i] ?? 0) / 100_000_000,
+        stream_id: stream_ids[i],
+      };
+    });
+    
+    const currentTime = Date.now();
+  
+    const pendingStreams = [];
+    const completedStreams = [];
+    const activeStreams = [];
+  
+    for (let i = 0; i < streams.length; i++) {
+      const stream = streams[i];
+      if (stream.start === 0) {
+        pendingStreams.push(stream);
+      } else if (stream.start + stream.duration > currentTime) {
+        activeStreams.push(stream);
+      } else {
+        completedStreams.push(stream);
+      }
+    }
+  
+    return {
+      Pending: pendingStreams,
+      Completed: completedStreams,
+      Active: activeStreams,
+    };
+
   };
 
   if (!connected) {
